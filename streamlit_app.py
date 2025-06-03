@@ -28,7 +28,7 @@ if "user_email" not in st.session_state:
         if is_valid_domain(email_input):
             st.session_state.user_email = email_input.lower()
             st.success(f"✅ Welcome, {email_input.split('@')[0]}!")
-            st.experimental_rerun()  # Refresh and show chat
+            st.rerun()
         else:
             st.error("❌ Unauthorized domain. Please use a valid company email.")
     st.stop()  # Prevent rest of app from loading if not logged in
