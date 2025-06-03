@@ -2,7 +2,7 @@ import streamlit as st
 import re
 import os
 import gspread
-from oauth2client.service_account import ServiceAccountCredentials
+from google.oauth2.service_account import Credentials
 from dotenv import load_dotenv
 from datetime import datetime
 
@@ -22,13 +22,19 @@ def is_valid_domain(email):
 
 # --- Connect to Google Sheets ---
 def connect_to_sheets(sheet_name):
-    scope = [
-        "https://spreadsheets.google.com/feeds",
+    SERVICE_ACCOUNT_FILE = "service_account.json"  # <-- Your new JSON file
+    SCOPES = [
+        "https://www.googleapis.com/auth/spreadsheets",
         "https://www.googleapis.com/auth/drive"
     ]
-    credentials = ServiceAccountCredentials.from_json_keyfile_name("client_secret_78579062192.json", scope)
-    gc = gspread.authorize(credentials)
-    sheet = gc.open(sheet_name).sheet1
+    
+    creds = Credentials.from_service_account_file(
+        SERVICE_ACCOUNT_FILE,
+        scopes=SCOPES
+    )
+    
+    client = gspread.authorize(creds)
+    sheet = client.open(sheet_name).sheet1
     return sheet
 
 # --- Log interaction ---
@@ -55,7 +61,7 @@ if "user_email" not in st.session_state:
 # ✅ If logged in, proceed with app!
 
 # Connect to Google Sheet
-SHEET_NAME = "PHC HR Chatbot Analytics"  # <-- your real Sheet Name
+SHEET_NAME = "PHC HR Chatbot Analytics"  # <-- Your Sheet Name
 sheet = connect_to_sheets(SHEET_NAME)
 
 # Load environment variables or secrets
