@@ -3,13 +3,12 @@ import re
 import os
 from dotenv import load_dotenv
 
-# --- SET PAGE CONFIG AT VERY TOP ---
 st.set_page_config(page_title="HR Chatbot", page_icon="💬", layout="wide")
 
 # --- Allowed Domains List ---
 ALLOWED_DOMAINS = ["mespai.com", "providencehealth.bc.ca", "gmail.com"]
 
-# --- Function to validate email domain ---
+# --- Validate email domain ---
 def is_valid_domain(email):
     try:
         domain = email.split('@')[1]
@@ -17,7 +16,7 @@ def is_valid_domain(email):
     except:
         return False
 
-# --- Login Screen Logic ---
+# --- Login ---
 if "user_email" not in st.session_state:
     st.title("🔒 Secure Access")
     st.caption("Please enter your work email to continue.")
@@ -31,11 +30,9 @@ if "user_email" not in st.session_state:
             st.rerun()
         else:
             st.error("❌ Unauthorized domain. Please use a valid company email.")
-    st.stop()  # Prevent rest of app from loading if not logged in
+    st.stop()
 
-# ✅ If logged in, proceed with app!
-
-# Load environment variables or secrets
+# Load environment
 try:
     AZURE_OPENAI_CHAT_ENDPOINT = st.secrets["AZURE_OPENAI_CHAT_ENDPOINT"]
     AZURE_OPENAI_CHAT_API_KEY = st.secrets["AZURE_OPENAI_CHAT_API_KEY"]
@@ -61,54 +58,49 @@ except Exception:
     AZURE_SEARCH_ENDPOINT = os.getenv("AZURE_SEARCH_ENDPOINT")
     AZURE_SEARCH_API_KEY = os.getenv("AZURE_SEARCH_API_KEY")
 
-# Import after environment is loaded
+# Import backend logic
 from chat_with_index import ask_question
 
 # --- Streamlit UI Chatbot ---
 st.title("💬 HR Chatbot")
 st.caption(f"Welcome, {st.session_state.user_email}!")
 
-# Initialize chat history
+# Chat History
 if "messages" not in st.session_state:
     st.session_state.messages = []
 
-# Display chat messages
+if "last_answer" not in st.session_state:
+    st.session_state.last_answer = None
+
+# Display chat history
 for message in st.session_state.messages:
     with st.chat_message(message["role"]):
         st.markdown(message["content"], unsafe_allow_html=True)
 
-# Chat input box
+# Chat input
 user_input = st.chat_input("Ask your HR question here...")
 
 if user_input:
-    # Display user message
     st.chat_message("user").markdown(user_input)
     st.session_state.messages.append({"role": "user", "content": user_input})
 
-    # Get answer from backend
     with st.spinner("Thinking..."):
         answer = ask_question(user_input)
 
-    # Split answer and sources
-    if "📚 **Sources:**" in answer:
-        main_answer, sources = answer.split("📚 **Sources:**", 1)
-    else:
-        main_answer, sources = answer, ""
+    # Save last answer for feedback buttons
+    st.session_state.last_answer = answer
 
-    # Display assistant's main answer
-    st.chat_message("assistant").markdown(main_answer.strip())
-    st.session_state.messages.append({"role": "assistant", "content": main_answer.strip()})
+    st.chat_message("assistant").markdown(answer.strip())
+    st.session_state.messages.append({"role": "assistant", "content": answer.strip()})
 
-    # Display sources if available
-    if sources.strip():
-        st.markdown(f"📚 **Sources:**\n{sources.strip()}", unsafe_allow_html=True)
-
-    # --- NEW: Add Feedback Buttons (after displaying the bot response) ---
-    st.write("Was this answer helpful?")
+# --- Feedback Buttons ---
+if st.session_state.get("last_answer"):
     col1, col2 = st.columns(2)
     with col1:
-        if st.button("👍 Yes", key=f"yes_{len(st.session_state.messages)}"):
-            st.success("✅ Thanks for the feedback!")
+        if st.button("👍 Yes, it helped", key="feedback_yes"):
+            st.success("✅ Thank you for your feedback!")
+            st.session_state.last_answer = None  # Reset
     with col2:
-        if st.button("👎 No", key=f"no_{len(st.session_state.messages)}"):
-            st.error("❌ Sorry I'm unable to answer your question, please contact hr@mespai.com for further assistance.")
+        if st.button("👎 No, it didn't help", key="feedback_no"):
+            st.warning("❌ Sorry I'm unable to answer your question. Please contact hr@mespai.com for further assistance.")
+            st.session_state.last_answer = None  # Reset
