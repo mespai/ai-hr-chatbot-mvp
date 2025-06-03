@@ -103,14 +103,12 @@ if user_input:
     if sources.strip():
         st.markdown(f"📚 **Sources:**\n{sources.strip()}", unsafe_allow_html=True)
 
-    # --- FEEDBACK BUTTONS ---
-    st.markdown("### 🤔 Was this helpful?")
+    # --- NEW: Add Feedback Buttons (after displaying the bot response) ---
+    st.write("Was this answer helpful?")
     col1, col2 = st.columns(2)
     with col1:
-        if st.button("👍 Yes, helpful"):
-            st.success("✅ Great! Thank you for your feedback.")
-            # Here you could also log success feedback into a file or db
+        if st.button("👍 Yes", key=f"yes_{len(st.session_state.messages)}"):
+            st.success("✅ Thanks for the feedback!")
     with col2:
-        if st.button("👎 No, not helpful"):
-            st.error("❌ Sorry I'm unable to answer your question. Please contact hr@mespai.com for further assistance.")
-            # Here you could also log failure feedback into a file or db
+        if st.button("👎 No", key=f"no_{len(st.session_state.messages)}"):
+            st.error("❌ Sorry I'm unable to answer your question, please contact hr@mespai.com for further assistance.")
