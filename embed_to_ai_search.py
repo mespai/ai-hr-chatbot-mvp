@@ -1,46 +1,37 @@
-import os
-import openai
-from dotenv import load_dotenv
-from azure.core.credentials import AzureKeyCredential
-from azure.search.documents import SearchClient
-from azure.search.documents.indexes import SearchIndexClient
-from azure.search.documents.indexes.models import (
-    SearchIndex, SimpleField, SearchableField, SearchFieldDataType
-)
-from azure.search.documents.indexes.models import (
-    VectorSearch, HnswAlgorithmConfiguration, VectorSearchProfile
-)
-from azure.search.documents.indexes.models._index import SearchField
-from azure.identity import DefaultAzureCredential
+import re
 from PyPDF2 import PdfReader
 from tqdm import tqdm
 import tiktoken
+from azure.core.credentials import AzureKeyCredential
+from azure.search.documents import SearchClient
+from openai import AzureOpenAI
+import os
+from dotenv import load_dotenv
 
 # Load .env
 load_dotenv()
 
-# ENV variables
+# Azure config
 AZURE_SEARCH_ENDPOINT = os.getenv("AZURE_SEARCH_ENDPOINT")
 AZURE_SEARCH_API_KEY = os.getenv("AZURE_SEARCH_API_KEY")
-AZURE_OPENAI_API_KEY = os.getenv("AZURE_OPENAI_API_KEY")
-AZURE_OPENAI_ENDPOINT = os.getenv("AZURE_OPENAI_ENDPOINT")
-AZURE_OPENAI_DEPLOYMENT = os.getenv("AZURE_OPENAI_DEPLOYMENT")
+AZURE_OPENAI_EMBEDDING_API_KEY = os.getenv("AZURE_OPENAI_EMBEDDING_API_KEY")
+AZURE_OPENAI_EMBEDDING_ENDPOINT = os.getenv("AZURE_OPENAI_EMBEDDING_ENDPOINT")
+AZURE_OPENAI_EMBEDDING_DEPLOYMENT = os.getenv("AZURE_OPENAI_EMBEDDING_DEPLOYMENT")
 
 # Clients
-search_credential = AzureKeyCredential(AZURE_SEARCH_API_KEY)
 search_client = SearchClient(
     endpoint=AZURE_SEARCH_ENDPOINT,
     index_name="docs",
-    credential=search_credential
+    credential=AzureKeyCredential(AZURE_SEARCH_API_KEY)
 )
-from openai import AzureOpenAI
 
-client = AzureOpenAI(
-    api_key=AZURE_OPENAI_API_KEY,
+embedding_client = AzureOpenAI(
+    api_key=AZURE_OPENAI_EMBEDDING_API_KEY,
+    azure_endpoint=AZURE_OPENAI_EMBEDDING_ENDPOINT,
     api_version="2024-02-15-preview",
-    azure_endpoint=AZURE_OPENAI_ENDPOINT
 )
-# --- STEP 1: Read + Chunk the PDF ---
+
+# Chunking utility
 def chunk_text(text, max_tokens=500):
     encoding = tiktoken.get_encoding("cl100k_base")
     words = text.split()
@@ -63,26 +54,62 @@ def chunk_text(text, max_tokens=500):
 
     return chunks
 
+# Section detection regex
+SECTION_REGEX = r'^(\d+)\.\s(.+)$'  # e.g., 1. Policy Overview
+
+def parse_sections(raw_text):
+    sections = []
+    current_section = {"number": None, "title": None, "content": ""}
+
+    for line in raw_text.split("\n"):
+        match = re.match(SECTION_REGEX, line.strip())
+        if match:
+            # Save previous section if exists
+            if current_section["number"]:
+                sections.append(current_section)
+            # Start new section
+            current_section = {
+                "number": match.group(1),
+                "title": match.group(2).strip(),
+                "content": ""
+            }
+        else:
+            current_section["content"] += line + " "
+
+    # Add last section
+    if current_section["number"]:
+        sections.append(current_section)
+
+    return sections
+
+# Read and parse
 reader = PdfReader("sample.pdf")
 raw_text = ""
 for page in reader.pages:
     raw_text += page.extract_text()
 
-chunks = chunk_text(raw_text)
+sections = parse_sections(raw_text)
 
-# --- STEP 2: Embed and Upload ---
-for i, chunk in enumerate(tqdm(chunks)):
-    response = openai.embeddings.create(
-        input=[chunk],
-        model=AZURE_OPENAI_DEPLOYMENT
-    )
-    embedding = response.data[0].embedding
+# --- Upload with Section Metadata ---
+for section in tqdm(sections):
+    chunks = chunk_text(section["content"])
 
-    record = {
-        "id": f"doc-{i}",
-        "content": chunk,
-        "embedding": embedding
-    }
-    search_client.upload_documents(documents=[record])
+    for i, chunk in enumerate(chunks):
+        response = embedding_client.embeddings.create(
+            input=[chunk],
+            model=AZURE_OPENAI_EMBEDDING_DEPLOYMENT
+        )
+        embedding = response.data[0].embedding
 
-print("✅ Done embedding and uploading to Azure AI Search")
+        record = {
+            "id": f"doc-{section['number']}-{i}",
+            "content": chunk,
+            "section_number": section["number"],
+            "section_title": section["title"],
+            "document_name": "Mespai Vacation Policy",  # Static for now
+            "document_url": "https://docs.google.com/document/d/10QbVhiwQ6Kq70IPcr8wqx8hd15JEbx9m/edit?usp=drive_link&ouid=113900478632323279041&rtpof=true&sd=true",  # Replace with real SharePoint URL
+            "embedding": embedding
+        }
+        search_client.upload_documents(documents=[record])
+
+print("✅ Done embedding and uploading with section metadata!")
