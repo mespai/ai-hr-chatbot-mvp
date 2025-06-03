@@ -1,3 +1,39 @@
+import streamlit as st
+import re
+
+# --- Allowed Domains List ---
+ALLOWED_DOMAINS = ["mespai.com", "providencehealth.bc.ca", "gmail.com"]
+
+# --- Function to validate email domain ---
+def is_valid_domain(email):
+    try:
+        domain = email.split('@')[1]
+        return domain.lower() in ALLOWED_DOMAINS
+    except:
+        return False
+
+# --- Login Screen Logic ---
+if "user_email" not in st.session_state:
+    st.set_page_config(page_title="Login | HR Chatbot", page_icon="🔒", layout="centered")
+    st.title("🔒 Secure Access")
+    st.caption("Please enter your work email to continue.")
+
+    email_input = st.text_input("Work Email", placeholder="you@mespai.com")
+
+    if st.button("Continue"):
+        if is_valid_domain(email_input):
+            st.session_state.user_email = email_input.lower()
+            st.success(f"✅ Welcome, {email_input.split('@')[0]}!")
+            st.experimental_rerun()  # Refresh and show chat
+        else:
+            st.error("❌ Unauthorized domain. Please use a valid company email.")
+
+else:
+    # ✅ Once logged in, continue loading the Chat UI here
+    st.set_page_config(page_title="HR Chatbot", page_icon="💬", layout="wide")
+    st.title(f"💬 HR Chatbot")
+    st.caption(f"Welcome, {st.session_state.user_email}!")
+
 import os
 import streamlit as st
 from dotenv import load_dotenv
