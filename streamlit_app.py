@@ -1,5 +1,10 @@
 import streamlit as st
 import re
+import os
+from dotenv import load_dotenv
+
+# --- SET PAGE CONFIG AT VERY TOP ---
+st.set_page_config(page_title="HR Chatbot", page_icon="💬", layout="wide")
 
 # --- Allowed Domains List ---
 ALLOWED_DOMAINS = ["mespai.com", "providencehealth.bc.ca", "gmail.com"]
@@ -14,7 +19,6 @@ def is_valid_domain(email):
 
 # --- Login Screen Logic ---
 if "user_email" not in st.session_state:
-    st.set_page_config(page_title="Login | HR Chatbot", page_icon="🔒", layout="centered")
     st.title("🔒 Secure Access")
     st.caption("Please enter your work email to continue.")
 
@@ -27,20 +31,12 @@ if "user_email" not in st.session_state:
             st.experimental_rerun()  # Refresh and show chat
         else:
             st.error("❌ Unauthorized domain. Please use a valid company email.")
+    st.stop()  # Prevent rest of app from loading if not logged in
 
-else:
-    # ✅ Once logged in, continue loading the Chat UI here
-    st.set_page_config(page_title="HR Chatbot", page_icon="💬", layout="wide")
-    st.title(f"💬 HR Chatbot")
-    st.caption(f"Welcome, {st.session_state.user_email}!")
-
-import os
-import streamlit as st
-from dotenv import load_dotenv
+# ✅ If logged in, proceed with app!
 
 # Load environment variables or secrets
 try:
-    # Try loading from Streamlit Cloud secrets
     AZURE_OPENAI_CHAT_ENDPOINT = st.secrets["AZURE_OPENAI_CHAT_ENDPOINT"]
     AZURE_OPENAI_CHAT_API_KEY = st.secrets["AZURE_OPENAI_CHAT_API_KEY"]
     AZURE_OPENAI_CHAT_DEPLOYMENT = st.secrets["AZURE_OPENAI_CHAT_DEPLOYMENT"]
@@ -53,9 +49,7 @@ try:
     AZURE_SEARCH_API_KEY = st.secrets["AZURE_SEARCH_API_KEY"]
 
 except Exception:
-    # If st.secrets doesn't work, load from .env file
     load_dotenv(override=True)
-
     AZURE_OPENAI_CHAT_ENDPOINT = os.getenv("AZURE_OPENAI_CHAT_ENDPOINT")
     AZURE_OPENAI_CHAT_API_KEY = os.getenv("AZURE_OPENAI_CHAT_API_KEY")
     AZURE_OPENAI_CHAT_DEPLOYMENT = os.getenv("AZURE_OPENAI_CHAT_DEPLOYMENT")
@@ -70,11 +64,9 @@ except Exception:
 # Import after environment is loaded
 from chat_with_index import ask_question
 
-# --- Streamlit UI Config ---
-st.set_page_config(page_title="HR Chatbot", page_icon="💬")
-
+# --- Streamlit UI Chatbot ---
 st.title("💬 HR Chatbot")
-st.caption("Ask me anything about HR policies!")
+st.caption(f"Welcome, {st.session_state.user_email}!")
 
 # Initialize chat history
 if "messages" not in st.session_state:
