@@ -2,6 +2,7 @@ import streamlit as st
 import re
 import os
 from dotenv import load_dotenv
+from datetime import datetime
 
 # --- SET PAGE CONFIG AT VERY TOP ---
 st.set_page_config(page_title="HR Chatbot", page_icon="💬", layout="wide")
@@ -31,7 +32,7 @@ if "user_email" not in st.session_state:
             st.rerun()
         else:
             st.error("❌ Unauthorized domain. Please use a valid company email.")
-    st.stop()  # Prevent rest of app from loading if not logged in
+    st.stop()
 
 # ✅ If logged in, proceed with app!
 
@@ -61,8 +62,33 @@ except Exception:
     AZURE_SEARCH_ENDPOINT = os.getenv("AZURE_SEARCH_ENDPOINT")
     AZURE_SEARCH_API_KEY = os.getenv("AZURE_SEARCH_API_KEY")
 
-# Import after environment is loaded
+# Import backend
 from chat_with_index import ask_question
+
+# --- Initialize Feedback Log ---
+if "feedback_log" not in st.session_state:
+    st.session_state.feedback_log = []
+
+def save_feedback(user_email, question, answer, feedback):
+    st.session_state.feedback_log.append({
+        "email": user_email,
+        "question": question,
+        "answer": answer,
+        "feedback": feedback,
+        "timestamp": datetime.utcnow().isoformat()
+    })
+
+def feedback_section(user_email, question, answer):
+    st.write("### Did this answer your question?")
+    col1, col2 = st.columns(2)
+    with col1:
+        if st.button("👍 Yes"):
+            save_feedback(user_email, question, answer, feedback="Yes")
+            st.success("✅ Thank you for your feedback!")
+    with col2:
+        if st.button("👎 No"):
+            save_feedback(user_email, question, answer, feedback="No")
+            st.warning("💬 We'll look into improving that!")
 
 # --- Streamlit UI Chatbot ---
 st.title("💬 HR Chatbot")
@@ -102,3 +128,6 @@ if user_input:
     # Display sources if available
     if sources.strip():
         st.markdown(f"📚 **Sources:**\n{sources.strip()}", unsafe_allow_html=True)
+
+    # --- Feedback Section ---
+    feedback_section(st.session_state.user_email, user_input, main_answer.strip())
