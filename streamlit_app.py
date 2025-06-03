@@ -1,8 +1,12 @@
 import streamlit as st
 import re
 import os
+import gspread
+from oauth2client.service_account import ServiceAccountCredentials
 from dotenv import load_dotenv
+from datetime import datetime
 
+# --- SET PAGE CONFIG AT VERY TOP ---
 st.set_page_config(page_title="HR Chatbot", page_icon="💬", layout="wide")
 
 # --- Allowed Domains List ---
@@ -16,7 +20,23 @@ def is_valid_domain(email):
     except:
         return False
 
-# --- Login ---
+# --- Connect to Google Sheets ---
+def connect_to_sheets(sheet_name):
+    scope = [
+        "https://spreadsheets.google.com/feeds",
+        "https://www.googleapis.com/auth/drive"
+    ]
+    credentials = ServiceAccountCredentials.from_json_keyfile_name("client_secret_78579062192.json", scope)
+    gc = gspread.authorize(credentials)
+    sheet = gc.open(sheet_name).sheet1
+    return sheet
+
+# --- Log interaction ---
+def log_interaction(sheet, user_email, question, answer, feedback):
+    timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    sheet.append_row([user_email, question, answer, feedback, timestamp])
+
+# --- Login Screen ---
 if "user_email" not in st.session_state:
     st.title("🔒 Secure Access")
     st.caption("Please enter your work email to continue.")
@@ -32,7 +52,13 @@ if "user_email" not in st.session_state:
             st.error("❌ Unauthorized domain. Please use a valid company email.")
     st.stop()
 
-# Load environment
+# ✅ If logged in, proceed with app!
+
+# Connect to Google Sheet
+SHEET_NAME = "PHC HR Chatbot Analytics"  # <-- your real Sheet Name
+sheet = connect_to_sheets(SHEET_NAME)
+
+# Load environment variables or secrets
 try:
     AZURE_OPENAI_CHAT_ENDPOINT = st.secrets["AZURE_OPENAI_CHAT_ENDPOINT"]
     AZURE_OPENAI_CHAT_API_KEY = st.secrets["AZURE_OPENAI_CHAT_API_KEY"]
@@ -58,49 +84,75 @@ except Exception:
     AZURE_SEARCH_ENDPOINT = os.getenv("AZURE_SEARCH_ENDPOINT")
     AZURE_SEARCH_API_KEY = os.getenv("AZURE_SEARCH_API_KEY")
 
-# Import backend logic
+# Import after environment is loaded
 from chat_with_index import ask_question
 
 # --- Streamlit UI Chatbot ---
 st.title("💬 HR Chatbot")
 st.caption(f"Welcome, {st.session_state.user_email}!")
 
-# Chat History
+# Initialize chat history
 if "messages" not in st.session_state:
     st.session_state.messages = []
 
-if "last_answer" not in st.session_state:
-    st.session_state.last_answer = None
-
-# Display chat history
+# Display chat messages
 for message in st.session_state.messages:
     with st.chat_message(message["role"]):
         st.markdown(message["content"], unsafe_allow_html=True)
 
-# Chat input
+# Chat input box
 user_input = st.chat_input("Ask your HR question here...")
 
 if user_input:
+    # Display user message
     st.chat_message("user").markdown(user_input)
     st.session_state.messages.append({"role": "user", "content": user_input})
 
+    # Get answer from backend
     with st.spinner("Thinking..."):
         answer = ask_question(user_input)
 
-    # Save last answer for feedback buttons
-    st.session_state.last_answer = answer
+    # Split answer and sources
+    if "📚 **Sources:**" in answer:
+        main_answer, sources = answer.split("📚 **Sources:**", 1)
+    else:
+        main_answer, sources = answer, ""
 
-    st.chat_message("assistant").markdown(answer.strip())
-    st.session_state.messages.append({"role": "assistant", "content": answer.strip()})
+    # Display assistant's main answer
+    st.chat_message("assistant").markdown(main_answer.strip())
+    st.session_state.messages.append({"role": "assistant", "content": main_answer.strip()})
 
-# --- Feedback Buttons ---
+    # Display sources if available
+    if sources.strip():
+        st.markdown(f"📚 **Sources:**\n{sources.strip()}", unsafe_allow_html=True)
+
+    # Save last interaction
+    st.session_state.last_question = user_input
+    st.session_state.last_answer = main_answer.strip()
+
+# ---- Feedback Buttons ----
 if st.session_state.get("last_answer"):
     col1, col2 = st.columns(2)
     with col1:
         if st.button("👍 Yes, it helped", key="feedback_yes"):
             st.success("✅ Thank you for your feedback!")
+            log_interaction(
+                sheet,
+                st.session_state.user_email,
+                st.session_state.last_question,
+                st.session_state.last_answer,
+                "Yes"
+            )
             st.session_state.last_answer = None  # Reset
+
     with col2:
         if st.button("👎 No, it didn't help", key="feedback_no"):
             st.warning("❌ Sorry I'm unable to answer your question. Please contact hr@mespai.com for further assistance.")
+            log_interaction(
+                sheet,
+                st.session_state.user_email,
+                st.session_state.last_question,
+                st.session_state.last_answer,
+                "No"
+            )
             st.session_state.last_answer = None  # Reset
