@@ -5,3 +5,5 @@ azure-identity
 tiktoken
 PyPDF2
 tqdm
+gspread
+oauth2client
