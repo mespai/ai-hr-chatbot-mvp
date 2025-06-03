@@ -174,4 +174,4 @@ cython_debug/
 .pypirc
 
 # Google API
-credentials.json
+service_account.json
