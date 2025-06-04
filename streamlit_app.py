@@ -8,7 +8,16 @@ from dotenv import load_dotenv
 from datetime import datetime
 
 # --- SET PAGE CONFIG AT VERY TOP ---
-st.set_page_config(page_title="HR Chatbot", page_icon="💬", layout="wide")
+st.set_page_config(
+    page_title="HR Chatbot",
+    page_icon="💬",
+    layout="wide",
+    menu_items={
+        "report_a_bug": None,
+        "get_help": None,
+        "About": None
+    }
+)
 
 # --- Allowed Domains List ---
 ALLOWED_DOMAINS = ["mespai.com", "providencehealth.bc.ca", "gmail.com"]
