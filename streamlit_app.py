@@ -13,8 +13,8 @@ st.set_page_config(
     page_icon="💬",
     layout="wide",
     menu_items={
-        "report_a_bug": None,
-        "get_help": None,
+        "Get help": None,
+        "Report a bug": None,
         "About": None
     }
 )
