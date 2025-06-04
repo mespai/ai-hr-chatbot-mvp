@@ -101,9 +101,13 @@ except Exception:
 # Import after environment is loaded
 from chat_with_index import ask_question
 
-# --- Streamlit UI Chatbot ---
-st.title("💬 HR Chatbot")
-st.caption(f"Welcome, {st.session_state.user_email}!")
+# After successful login (Main Page)
+
+# Load PHC logo
+st.image("phc_logo.png", width=200)  # Adjust width as needed
+
+# Title without emoji
+st.title("How can I help you today?")
 
 # Initialize chat history
 if "messages" not in st.session_state:
