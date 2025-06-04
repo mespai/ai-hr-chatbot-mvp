@@ -7,3 +7,9 @@ PyPDF2
 tqdm
 gspread
 oauth2client
+streamlit
+gspread
+oauth2client
+python-dotenv
+azure-search-documents
+azure-core
