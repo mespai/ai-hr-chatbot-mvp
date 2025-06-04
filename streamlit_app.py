@@ -27,15 +27,12 @@ def connect_to_sheets(sheet_name):
         "https://www.googleapis.com/auth/drive"
     ]
     
-    try:
-        # Try to use Streamlit secrets first
-        credentials = Credentials.from_service_account_info(
-            st.secrets["gcp_service_account"],
-            scopes=SCOPES
-        )
-    except Exception as e:
-        st.error(f"Error loading credentials: {e}")
-        st.stop()  # Prevent continuing if credentials fail
+    SERVICE_ACCOUNT_FILE = "/etc/secrets/service_account.json"  # Path on Render
+
+    credentials = Credentials.from_service_account_file(
+        SERVICE_ACCOUNT_FILE,
+        scopes=SCOPES
+    )
     
     client = gspread.authorize(credentials)
     sheet = client.open(sheet_name).sheet1
