@@ -1,8 +1,9 @@
 import streamlit as st
 import re
 import os
+import json
 import gspread
-from oauth2client.service_account import ServiceAccountCredentials
+from google.oauth2.service_account import Credentials
 from dotenv import load_dotenv
 from datetime import datetime
 
@@ -23,36 +24,19 @@ def is_valid_domain(email):
 # --- Connect to Google Sheets ---
 def connect_to_sheets(sheet_name):
     SCOPES = [
-        "https://spreadsheets.google.com/feeds",
+        "https://www.googleapis.com/auth/spreadsheets",
         "https://www.googleapis.com/auth/drive"
     ]
 
     try:
-        # Prepare credentials dictionary for Streamlit secrets
-        credentials_dict = {
-            "type": st.secrets["type"],
-            "project_id": st.secrets["project_id"],
-            "private_key_id": st.secrets["private_key_id"],
-            "private_key": st.secrets["private_key"].replace('\\n', '\n'),
-            "client_email": st.secrets["client_email"],
-            "client_id": st.secrets["client_id"],
-            "auth_uri": st.secrets["auth_uri"],
-            "token_uri": st.secrets["token_uri"],
-            "auth_provider_x509_cert_url": st.secrets["auth_provider_x509_cert_url"],
-            "client_x509_cert_url": st.secrets["client_x509_cert_url"]
-        }
-
+        # Load credentials from environment variable
+        service_account_info = json.loads(os.environ["GCP_SERVICE_ACCOUNT"])
         credentials = Credentials.from_service_account_info(
-            credentials_dict,
-            scopes=SCOPES
+            service_account_info, scopes=SCOPES
         )
-    except:
-        # Fallback to local JSON file (for local development)
-        SERVICE_ACCOUNT_FILE = "service_account.json"
-        credentials = Credentials.from_service_account_file(
-            SERVICE_ACCOUNT_FILE,
-            scopes=SCOPES
-        )
+    except Exception as e:
+        st.error(f"Error loading credentials: {e}")
+        st.stop()  # Prevent continuing if credentials fail
 
     client = gspread.authorize(credentials)
     sheet = client.open(sheet_name).sheet1
@@ -82,7 +66,7 @@ if "user_email" not in st.session_state:
 # ✅ If logged in, proceed with app!
 
 # Connect to Google Sheet
-SHEET_NAME = "PHC HR Chatbot Analytics"  # <-- your real Sheet Name
+SHEET_NAME = "PHC HR Chatbot Analytics"  # <-- Your Sheet Name
 sheet = connect_to_sheets(SHEET_NAME)
 
 # Load environment variables or secrets
