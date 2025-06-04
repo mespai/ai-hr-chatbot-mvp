@@ -1,6 +1,7 @@
 import streamlit as st
 import re
 import os
+import json
 import gspread
 from google.oauth2.service_account import Credentials
 from dotenv import load_dotenv
@@ -17,7 +18,7 @@ def is_valid_domain(email):
     try:
         domain = email.split('@')[1]
         return domain.lower() in ALLOWED_DOMAINS
-    except:
+    except Exception:
         return False
 
 # --- Connect to Google Sheets ---
@@ -26,14 +27,18 @@ def connect_to_sheets(sheet_name):
         "https://www.googleapis.com/auth/spreadsheets",
         "https://www.googleapis.com/auth/drive"
     ]
-    
-    SERVICE_ACCOUNT_FILE = "/etc/secrets/service_account.json"  # Path on Render
 
-    credentials = Credentials.from_service_account_file(
-        SERVICE_ACCOUNT_FILE,
-        scopes=SCOPES
-    )
-    
+    try:
+        # For Render deployment — load service account info from secret ENV
+        service_account_info = json.loads(os.environ["GCP_SERVICE_ACCOUNT"])
+        credentials = Credentials.from_service_account_info(
+            service_account_info,
+            scopes=SCOPES
+        )
+    except Exception as e:
+        st.error(f"Error loading credentials: {e}")
+        st.stop()
+
     client = gspread.authorize(credentials)
     sheet = client.open(sheet_name).sheet1
     return sheet
@@ -62,7 +67,7 @@ if "user_email" not in st.session_state:
 # ✅ If logged in, proceed with app!
 
 # Connect to Google Sheet
-SHEET_NAME = "PHC HR Chatbot Analytics"  # <-- Your Sheet Name
+SHEET_NAME = "PHC HR Chatbot Analytics"
 sheet = connect_to_sheets(SHEET_NAME)
 
 # Load environment variables or secrets
@@ -111,29 +116,23 @@ for message in st.session_state.messages:
 user_input = st.chat_input("Ask your HR question here...")
 
 if user_input:
-    # Display user message
     st.chat_message("user").markdown(user_input)
     st.session_state.messages.append({"role": "user", "content": user_input})
 
-    # Get answer from backend
     with st.spinner("Thinking..."):
         answer = ask_question(user_input)
 
-    # Split answer and sources
     if "📚 **Sources:**" in answer:
         main_answer, sources = answer.split("📚 **Sources:**", 1)
     else:
         main_answer, sources = answer, ""
 
-    # Display assistant's main answer
     st.chat_message("assistant").markdown(main_answer.strip())
     st.session_state.messages.append({"role": "assistant", "content": main_answer.strip()})
 
-    # Display sources if available
     if sources.strip():
         st.markdown(f"📚 **Sources:**\n{sources.strip()}", unsafe_allow_html=True)
 
-    # Save last interaction
     st.session_state.last_question = user_input
     st.session_state.last_answer = main_answer.strip()
 
@@ -151,7 +150,6 @@ if st.session_state.get("last_answer"):
                 "Yes"
             )
             st.session_state.last_answer = None  # Reset
-
     with col2:
         if st.button("👎 No, it didn't help", key="feedback_no"):
             st.warning("❌ Sorry I'm unable to answer your question. Please contact hr@mespai.com for further assistance.")
