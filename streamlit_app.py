@@ -22,18 +22,22 @@ def is_valid_domain(email):
 
 # --- Connect to Google Sheets ---
 def connect_to_sheets(sheet_name):
-    SERVICE_ACCOUNT_FILE = "service_account.json"  # <-- Your new JSON file
     SCOPES = [
         "https://www.googleapis.com/auth/spreadsheets",
         "https://www.googleapis.com/auth/drive"
     ]
     
-    creds = Credentials.from_service_account_file(
-        SERVICE_ACCOUNT_FILE,
-        scopes=SCOPES
-    )
+    try:
+        # Try to use Streamlit secrets first
+        credentials = Credentials.from_service_account_info(
+            st.secrets["gcp_service_account"],
+            scopes=SCOPES
+        )
+    except Exception as e:
+        st.error(f"Error loading credentials: {e}")
+        st.stop()  # Prevent continuing if credentials fail
     
-    client = gspread.authorize(creds)
+    client = gspread.authorize(credentials)
     sheet = client.open(sheet_name).sheet1
     return sheet
 
