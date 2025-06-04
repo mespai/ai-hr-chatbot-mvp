@@ -22,13 +22,27 @@ def is_valid_domain(email):
 
 # --- Connect to Google Sheets ---
 def connect_to_sheets(sheet_name):
-    scope = [
-        "https://spreadsheets.google.com/feeds",
+    SCOPES = [
+        "https://www.googleapis.com/auth/spreadsheets",
         "https://www.googleapis.com/auth/drive"
     ]
-    credentials = ServiceAccountCredentials.from_json_keyfile_name("client_secret_78579062192.json", scope)
-    gc = gspread.authorize(credentials)
-    sheet = gc.open(sheet_name).sheet1
+    
+    try:
+        # Try to use Streamlit secrets first (for cloud deployment)
+        credentials = Credentials.from_service_account_info(
+            st.secrets["gcp_service_account"],
+            scopes=SCOPES
+        )
+    except:
+        # Fallback to local JSON file (for local development)
+        SERVICE_ACCOUNT_FILE = "service_account.json"
+        credentials = Credentials.from_service_account_file(
+            SERVICE_ACCOUNT_FILE,
+            scopes=SCOPES
+        )
+    
+    client = gspread.authorize(credentials)
+    sheet = client.open(sheet_name).sheet1
     return sheet
 
 # --- Log interaction ---
