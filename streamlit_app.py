@@ -8,6 +8,8 @@ from dotenv import load_dotenv
 from datetime import datetime
 from PIL import Image  # <--- Add this for image handling
 
+load_dotenv()
+
 # --- SET PAGE CONFIG AT VERY TOP ---
 st.set_page_config(page_title="HR Chatbot", page_icon="💬", layout="wide")
 
@@ -46,14 +48,11 @@ def log_interaction(sheet, user_email, question, answer, feedback):
     sheet.append_row([user_email, question, answer, feedback, timestamp])
 
 # --- Login Screen ---
+# --- Login Screen ---
 if "user_email" not in st.session_state:
-    col1, col2 = st.columns([1, 5])
-    with col1:
-        logo = Image.open("phc_logo.png")  # <- Ensure the file exists
-        st.image(logo, width=60)
-    with col2:
-        st.title("HR Chatbot Login")  # <- Updated Title
-
+    # One column, align left
+    st.image("phc_logo.png", width=200)  # Make the logo bigger (adjust width as needed)
+    st.markdown("<h1 style='text-align: left; margin-top: 0;'>HR Chatbot Login</h1>", unsafe_allow_html=True)
     st.caption("Please enter your work email to continue.")
 
     email_input = st.text_input("Work Email", placeholder="you@mespai.com")
