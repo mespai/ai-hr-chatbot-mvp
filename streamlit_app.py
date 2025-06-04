@@ -1,23 +1,15 @@
 import streamlit as st
 import re
 import os
-import json  # ✅ NEW: for loading service account JSON
+import json
 import gspread
 from google.oauth2.service_account import Credentials
 from dotenv import load_dotenv
 from datetime import datetime
+from PIL import Image  # <--- Add this for image handling
 
 # --- SET PAGE CONFIG AT VERY TOP ---
-st.set_page_config(
-    page_title="HR Chatbot",
-    page_icon="💬",
-    layout="wide",
-    menu_items={
-        "Get help": None,
-        "Report a bug": None,
-        "About": None
-    }
-)
+st.set_page_config(page_title="HR Chatbot", page_icon="💬", layout="wide")
 
 # --- Allowed Domains List ---
 ALLOWED_DOMAINS = ["mespai.com", "providencehealth.bc.ca", "gmail.com"]
@@ -37,12 +29,13 @@ def connect_to_sheets(sheet_name):
         "https://www.googleapis.com/auth/drive"
     ]
     
+    # Load service account credentials from environment variable
     service_account_info = json.loads(os.getenv("GCP_SERVICE_ACCOUNT"))
     credentials = Credentials.from_service_account_info(
         service_account_info,
         scopes=SCOPES
     )
-    
+
     client = gspread.authorize(credentials)
     sheet = client.open(sheet_name).sheet1
     return sheet
@@ -54,7 +47,13 @@ def log_interaction(sheet, user_email, question, answer, feedback):
 
 # --- Login Screen ---
 if "user_email" not in st.session_state:
-    st.title("🔒 Secure Access")
+    col1, col2 = st.columns([1, 5])
+    with col1:
+        logo = Image.open("phc_logo.png")  # <- Ensure the file exists
+        st.image(logo, width=60)
+    with col2:
+        st.title("HR Chatbot Login")  # <- Updated Title
+
     st.caption("Please enter your work email to continue.")
 
     email_input = st.text_input("Work Email", placeholder="you@mespai.com")
