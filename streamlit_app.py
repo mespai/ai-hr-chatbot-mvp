@@ -55,7 +55,7 @@ if "user_email" not in st.session_state:
     st.markdown("<h1 style='text-align: left; margin-top: 0;'>HR Chatbot Login</h1>", unsafe_allow_html=True)
     st.caption("Please enter your work email to continue.")
 
-    email_input = st.text_input("Work Email", placeholder="you@mespai.com")
+    email_input = st.text_input("Work Email", placeholder="email@providencehealth.bc.ca")
 
     if st.button("Continue"):
         if is_valid_domain(email_input):
