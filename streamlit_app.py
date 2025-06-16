@@ -159,6 +159,15 @@ if user_input:
     st.session_state.last_question = user_input
     st.session_state.last_answer = main_answer.strip()
 
+    # Log Q/A immediately with 'Pending' feedback
+    log_interaction(
+        sheet,
+        st.session_state.user_email,
+        st.session_state.last_question,
+        st.session_state.last_answer,
+        "Pending"
+    )
+
 # ---- Feedback Buttons ----
 if st.session_state.get("last_answer"):
     col1, col2 = st.columns(2)
