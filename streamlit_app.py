@@ -185,7 +185,7 @@ if st.session_state.get("last_answer"):
 
     with col2:
         if st.button("👎 No, it didn't help", key="feedback_no"):
-            st.warning("❌ Sorry I'm unable to answer your question. Please contact hr@mespai.com for further assistance.")
+            st.warning("Sorry I'm unable to answer your question. Please contact hr@providencehealth.bc.com for further assistance.")
             log_interaction(
                 sheet,
                 st.session_state.user_email,
