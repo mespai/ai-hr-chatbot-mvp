@@ -7,6 +7,9 @@ from azure.search.documents import SearchClient
 from openai import AzureOpenAI
 import os
 from dotenv import load_dotenv
+import requests
+from io import BytesIO
+import uuid
 
 # Load .env
 load_dotenv()
@@ -31,7 +34,23 @@ embedding_client = AzureOpenAI(
     api_version="2024-02-15-preview",
 )
 
-# Chunking utility
+# Document list
+documents = [
+    {
+        "url": "https://mespaihrchatbotstorage.blob.core.windows.net/phchrchatbotmvpfiles/Common%20Themes%20of%20Questions%20that%20Employees%20.pdf",
+        "name": "Common Themes of Questions that Employees Ask"
+    },
+    {
+        "url": "https://mespaihrchatbotstorage.blob.core.windows.net/phchrchatbotmvpfiles/PHC%20NEE%20FAQ%202025.pdf",
+        "name": "PHC New Employee Onboarding FAQ 2025"
+    },
+    {
+        "url": "https://mespaihrchatbotstorage.blob.core.windows.net/phchrchatbotmvpfiles/Terms%20and%20Conditions%20of%20Employment%20for%20Non%20Contract%20Employees.pdf",
+        "name": "Terms and Conditions of Employment for Non-Contract Employees"
+    }
+]
+
+# Chunking function
 def chunk_text(text, max_tokens=500):
     encoding = tiktoken.get_encoding("cl100k_base")
     words = text.split()
@@ -54,62 +73,105 @@ def chunk_text(text, max_tokens=500):
 
     return chunks
 
-# Section detection regex
-SECTION_REGEX = r'^(\d+)\.\s(.+)$'  # e.g., 1. Policy Overview
+# Fetch and parse remote PDF
+def fetch_and_parse_pdf(url):
+    response = requests.get(url)
+    response.raise_for_status()
+    pdf_bytes = BytesIO(response.content)
+    reader = PdfReader(pdf_bytes)
+    text = ""
+    for page in reader.pages:
+        page_text = page.extract_text()
+        if page_text:
+            text += page_text + "\n"
+    return text
 
-def parse_sections(raw_text):
+def parse_faq_sections(text):
+    # Split on Q: or Q. or bullet points (\u2022 or -)
     sections = []
-    current_section = {"number": None, "title": None, "content": ""}
+    # Try Q: or Q. style
+    faq_parts = re.split(r'(?=^Q[:.])', text, flags=re.MULTILINE)
+    if len(faq_parts) > 1:
+        for part in faq_parts:
+            if not part.strip():
+                continue
+            lines = part.strip().split('\n', 1)
+            title = lines[0].strip()
+            content = lines[1].strip() if len(lines) > 1 else ""
+            sections.append({
+                "number": None,
+                "title": title,
+                "content": content
+            })
+        return sections
+    # Try bullet point style (• or -)
+    bullet_parts = re.split(r'(?=^[\u2022\-] )', text, flags=re.MULTILINE)
+    if len(bullet_parts) > 1:
+        for part in bullet_parts:
+            if not part.strip():
+                continue
+            lines = part.strip().split('\n', 1)
+            title = lines[0].strip()
+            content = lines[1].strip() if len(lines) > 1 else ""
+            sections.append({
+                "number": None,
+                "title": title,
+                "content": content
+            })
+        return sections
+    return []
 
-    for line in raw_text.split("\n"):
-        match = re.match(SECTION_REGEX, line.strip())
-        if match:
-            # Save previous section if exists
-            if current_section["number"]:
-                sections.append(current_section)
-            # Start new section
-            current_section = {
-                "number": match.group(1),
-                "title": match.group(2).strip(),
-                "content": ""
-            }
-        else:
-            current_section["content"] += line + " "
-
-    # Add last section
-    if current_section["number"]:
-        sections.append(current_section)
-
+def parse_lettered_sections(text):
+    sections = []
+    matches = list(re.finditer(r'^([A-Z])\)\s+(.+)$', text, flags=re.MULTILINE))
+    for i, match in enumerate(matches):
+        start = match.end()
+        end = matches[i+1].start() if i+1 < len(matches) else len(text)
+        content = text[start:end].strip()
+        sections.append({
+            "number": match.group(1),
+            "title": match.group(2),
+            "content": content
+        })
     return sections
 
-# Read and parse
-reader = PdfReader("sample.pdf")
-raw_text = ""
-for page in reader.pages:
-    raw_text += page.extract_text()
+def parse_sections(text):
+    # Try FAQ style first
+    faq_sections = parse_faq_sections(text)
+    if len(faq_sections) > 1:
+        return faq_sections
+    # Try lettered sections
+    lettered_sections = parse_lettered_sections(text)
+    if len(lettered_sections) > 1:
+        return lettered_sections
+    # Fallback: treat whole doc as one section
+    return [{"number": "1", "title": "Full Document", "content": text}]
 
-sections = parse_sections(raw_text)
-
-# --- Upload with Section Metadata ---
-for section in tqdm(sections):
-    chunks = chunk_text(section["content"])
-
-    for i, chunk in enumerate(chunks):
-        response = embedding_client.embeddings.create(
-            input=[chunk],
-            model=AZURE_OPENAI_EMBEDDING_DEPLOYMENT
-        )
-        embedding = response.data[0].embedding
-
-        record = {
-            "id": f"doc-{section['number']}-{i}",
-            "content": chunk,
-            "section_number": section["number"],
-            "section_title": section["title"],
-            "document_name": "Mespai Vacation Policy",  # Static for now
-            "document_url": "https://docs.google.com/document/d/10QbVhiwQ6Kq70IPcr8wqx8hd15JEbx9m/edit?usp=drive_link&ouid=113900478632323279041&rtpof=true&sd=true",  # Replace with real SharePoint URL
-            "embedding": embedding
-        }
-        search_client.upload_documents(documents=[record])
-
-print("✅ Done embedding and uploading with section metadata!")
+# Main embed loop
+print("RUNNING:", __file__)
+for doc in documents:
+    print(f"Fetching and parsing: {doc['url']}")
+    content = fetch_and_parse_pdf(doc["url"])
+    sections = parse_sections(content)
+    safe_name = re.sub(r'[^A-Za-z0-9_\-=]', '_', doc['name'])
+    for section in sections:
+        section_number = section["number"] if section["number"] else ""
+        section_title = section["title"] if section["title"] else ""
+        section_chunks = chunk_text(section["content"])
+        for j, chunk in enumerate(section_chunks):
+            response = embedding_client.embeddings.create(
+                input=[chunk],
+                model=AZURE_OPENAI_EMBEDDING_DEPLOYMENT
+            )
+            embedding = response.data[0].embedding
+            metadata = {
+                "id": f"{safe_name}_section_{section_number}_{j+1}_{uuid.uuid4().hex[:8]}",
+                "content": chunk,
+                "embedding": embedding,
+                "document_name": doc["name"],
+                "document_url": doc["url"],
+                "section_number": section_number,
+                "section_title": section_title
+            }
+            search_client.upload_documents(documents=[metadata])
+print("✅ All documents embedded and uploaded to Azure AI Search.")

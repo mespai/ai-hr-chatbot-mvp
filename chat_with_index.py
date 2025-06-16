@@ -70,11 +70,17 @@ def ask_question(query):
 
     # --- Format sources properly ---
     sources = []
+    seen = set()
     for result in results:
         doc_name = result.get("document_name", "Unknown Document")
         section_number = result.get("section_number", "N/A")
         section_title = result.get("section_title", "Untitled Section")
         document_url = result.get("document_url", "")
+
+        key = (doc_name, section_number, section_title, document_url)
+        if key in seen:
+            continue
+        seen.add(key)
 
         if document_url:
             citation = f"{doc_name} — Section {section_number}: {section_title} ([Link to Document]({document_url}))"
