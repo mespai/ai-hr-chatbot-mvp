@@ -47,6 +47,10 @@ documents = [
     {
         "url": "https://mespaihrchatbotstorage.blob.core.windows.net/phchrchatbotmvpfiles/Terms%20and%20Conditions%20of%20Employment%20for%20Non%20Contract%20Employees.pdf",
         "name": "Terms and Conditions of Employment for Non-Contract Employees"
+    },
+    {
+        "url": "https://mespaihrchatbotstorage.blob.core.windows.net/phchrchatbotmvpfiles/Nurses%20Bargaining%20Association%202022-2025%20Collective%20Agreement.pdf",
+        "name": "Nurses Bargaining Association 2022-2025 Collective Agreement"
     }
 ]
 

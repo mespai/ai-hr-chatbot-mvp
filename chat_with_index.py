@@ -59,59 +59,64 @@ def ask_question(query):
         "vectors": [{
             "value": query_embedding,
             "fields": "embedding",
-            "k": 3
+            "k": 6  # get more results to allow for both docs
         }],
-        "top": 3
+        "top": 6
     }
 
     response = requests.post(search_url, headers=headers, json=body)
     response.raise_for_status()
     results = response.json()["value"]
 
-    # --- Format sources properly ---
-    sources = []
-    seen = set()
+    # --- Group results by document type ---
+    grouped = {}
     for result in results:
         doc_name = result.get("document_name", "Unknown Document")
-        section_number = result.get("section_number", "N/A")
-        section_title = result.get("section_title", "Untitled Section")
-        document_url = result.get("document_url", "")
+        grouped.setdefault(doc_name, []).append(result)
 
-        key = (doc_name, section_number, section_title, document_url)
-        if key in seen:
-            continue
-        seen.add(key)
-
-        if document_url:
-            citation = f"{doc_name} — Section {section_number}: {section_title} ([Link to Document]({document_url}))"
+    # --- Prepare segmented answers ---
+    answer_blocks = []
+    for doc_name, doc_results in grouped.items():
+        # Build context from doc_results
+        context = "\n---\n".join(r["content"] for r in doc_results)
+        # Format heading
+        if "Non-Contract" in doc_name:
+            heading = "For Non-Contract Employees:"
+        elif "Nurses Bargaining Association" in doc_name:
+            heading = "For Contract (Nurse) Employees:"
         else:
-            citation = f"{doc_name} — Section {section_number}: {section_title}"
+            heading = f"For {doc_name}:"
+        # Step 4: Ask GPT-4 with context
+        system_prompt = "You are a helpful HR assistant. Use the context below to answer accurately. If unsure, say so."
+        user_prompt = f"Context:\n{context}\n\nQuestion:\n{query}"
+        chat_response = chat_client.chat.completions.create(
+            model=AZURE_OPENAI_CHAT_DEPLOYMENT,
+            messages=[
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": user_prompt}
+            ]
+        )
+        answer = chat_response.choices[0].message.content.strip()
+        # --- Format sources for this doc only ---
+        sources = []
+        seen = set()
+        for result in doc_results:
+            section_number = result.get("section_number", "N/A")
+            section_title = result.get("section_title", "Untitled Section")
+            document_url = result.get("document_url", "")
+            key = (doc_name, section_number, section_title, document_url)
+            if key in seen:
+                continue
+            seen.add(key)
+            if document_url:
+                citation = f"{doc_name} — Section {section_number}: {section_title} ([Link to Document]({document_url}))"
+            else:
+                citation = f"{doc_name} — Section {section_number}: {section_title}"
+            sources.append(citation)
+        formatted_sources = "\n".join(f"- {src}" for src in sources)
+        answer_blocks.append(f"### {heading}\n{answer}\n\n📚 **Sources:**\n{formatted_sources}")
 
-        sources.append(citation)
-
-    formatted_sources = "\n".join(f"- {src}" for src in sources)
-
-    # Step 3: Build context
-    context = ""
-    for result in results:
-        context += result["content"] + "\n---\n"
-
-    # Step 4: Ask GPT-4 with context
-    system_prompt = "You are a helpful HR assistant. Use the context below to answer accurately. If unsure, say so."
-    user_prompt = f"Context:\n{context}\n\nQuestion:\n{query}"
-
-    chat_response = chat_client.chat.completions.create(
-        model=AZURE_OPENAI_CHAT_DEPLOYMENT,
-        messages=[
-            {"role": "system", "content": system_prompt},
-            {"role": "user", "content": user_prompt}
-        ]
-    )
-
-    answer = chat_response.choices[0].message.content.strip()
-
-    # Step 5: Append formatted citations
-    return f"{answer}\n\n📚 **Sources:**\n{formatted_sources}"
+    return "\n\n".join(answer_blocks)
 
 # --- Test ---
 if __name__ == "__main__":
