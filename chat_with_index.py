@@ -42,7 +42,25 @@ search_client = SearchClient(
     credential=AzureKeyCredential(AZURE_SEARCH_API_KEY)
 )
 
+# Add at the top, after imports
+SYNONYM_MAP = {
+    "call in sick": ["report an absence", "illness", "sick day", "miss a shift"],
+    "sick": ["illness", "absence", "sick day"],
+    "miss a shift": ["absence", "call in sick", "illness"],
+    "late": ["tardy", "delayed", "not on time"],
+    # Add more as needed
+}
+
+def expand_query(query):
+    expanded = query
+    for phrase, synonyms in SYNONYM_MAP.items():
+        if phrase in query.lower():
+            expanded += " (" + ", ".join(synonyms) + ")"
+    return expanded
+
 def ask_question(query):
+    # Expand the query with synonyms before embedding
+    query = expand_query(query)
     # Step 1: Embed the query
     query_embedding = embedding_client.embeddings.create(
         input=[query],

@@ -180,12 +180,23 @@ print("RUNNING:", __file__)
 for doc in documents:
     print(f"Fetching and parsing: {doc['url']}")
     content = fetch_and_parse_pdf(doc["url"])
-    sections = parse_sections(content)
+    # For EARL Employee Guide, treat the whole doc as one section and use larger chunk size
+    if doc["name"] == "EARL Employee Guide":
+        sections = [{"number": "1", "title": "Full Document", "content": content}]
+        chunk_size = 1000
+    else:
+        sections = parse_sections(content)
+        chunk_size = 500
     safe_name = re.sub(r'[^A-Za-z0-9_\-=]', '_', doc['name'])
     for section in sections:
         section_number = section["number"] if section["number"] else ""
         section_title = section["title"] if section["title"] else ""
-        section_chunks = chunk_text(section["content"])
+        section_chunks = chunk_text(section["content"], max_tokens=chunk_size)
+        # Print out chunks for EARL Employee Guide
+        if doc["name"] == "EARL Employee Guide":
+            print(f"\n--- Chunks for EARL Employee Guide, Section: {section_title} ---")
+            for idx, chunk in enumerate(section_chunks):
+                print(f"Chunk {idx+1}:\n{chunk}\n{'-'*40}")
         for j, chunk in enumerate(section_chunks):
             response = embedding_client.embeddings.create(
                 input=[chunk],
