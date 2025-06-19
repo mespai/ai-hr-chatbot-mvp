@@ -74,48 +74,73 @@ def ask_question(query):
         doc_name = result.get("document_name", "Unknown Document")
         grouped.setdefault(doc_name, []).append(result)
 
-    # --- Prepare segmented answers ---
+    # --- Determine which docs are present in top results ---
+    contract_doc = "Nurses Bargaining Association 2022-2025 Collective Agreement"
+    non_contract_doc = "Terms and Conditions of Employment for Non-Contract Employees"
+    present_contract = contract_doc in grouped
+    present_non_contract = non_contract_doc in grouped
+
+    # --- Prepare answer blocks ---
     answer_blocks = []
-    for doc_name, doc_results in grouped.items():
-        # Build context from doc_results
-        context = "\n---\n".join(r["content"] for r in doc_results)
-        # Format heading
-        if "Non-Contract" in doc_name:
-            heading = "For Non-Contract Employees:"
-        elif "Nurses Bargaining Association" in doc_name:
-            heading = "For Contract (Nurse) Employees:"
-        else:
+    if present_contract and present_non_contract:
+        # Show both contract and non-contract answers
+        doc_order = [non_contract_doc, contract_doc]
+        for doc_name in doc_order:
+            doc_results = grouped[doc_name]
+            context = "\n---\n".join(r["content"] for r in doc_results)
+            heading = ("For Non-Contract Employees:" if doc_name == non_contract_doc else "For Contract (Nurse) Employees:")
+            system_prompt = "You are a helpful HR assistant. Use the context below to answer accurately. If unsure, say so."
+            user_prompt = f"Context:\n{context}\n\nQuestion:\n{query}"
+            chat_response = chat_client.chat.completions.create(
+                model=AZURE_OPENAI_CHAT_DEPLOYMENT,
+                messages=[
+                    {"role": "system", "content": system_prompt},
+                    {"role": "user", "content": user_prompt}
+                ]
+            )
+            answer = chat_response.choices[0].message.content.strip()
+            sources = []
+            seen = set()
+            for result in doc_results:
+                section_number = result.get("section_number", "N/A")
+                section_title = result.get("section_title", "Untitled Section")
+                document_url = result.get("document_url", "")
+                key = (doc_name, section_number, section_title, document_url)
+                if key in seen:
+                    continue
+                seen.add(key)
+                if document_url:
+                    citation = f"{doc_name} — Section {section_number}: {section_title} ([Link to Document]({document_url}))"
+                else:
+                    citation = f"{doc_name} — Section {section_number}: {section_title}"
+                sources.append(citation)
+            formatted_sources = "\n".join(f"- {src}" for src in sources)
+            answer_blocks.append(f"### {heading}\n{answer}\n\n📚 **Sources:**\n{formatted_sources}")
+    else:
+        # Show only the single best/highest-confidence answer
+        if results:
+            best_result = results[0]
+            doc_name = best_result.get("document_name", "Unknown Document")
+            context = best_result["content"]
             heading = f"For {doc_name}:"
-        # Step 4: Ask GPT-4 with context
-        system_prompt = "You are a helpful HR assistant. Use the context below to answer accurately. If unsure, say so."
-        user_prompt = f"Context:\n{context}\n\nQuestion:\n{query}"
-        chat_response = chat_client.chat.completions.create(
-            model=AZURE_OPENAI_CHAT_DEPLOYMENT,
-            messages=[
-                {"role": "system", "content": system_prompt},
-                {"role": "user", "content": user_prompt}
-            ]
-        )
-        answer = chat_response.choices[0].message.content.strip()
-        # --- Format sources for this doc only ---
-        sources = []
-        seen = set()
-        for result in doc_results:
-            section_number = result.get("section_number", "N/A")
-            section_title = result.get("section_title", "Untitled Section")
-            document_url = result.get("document_url", "")
-            key = (doc_name, section_number, section_title, document_url)
-            if key in seen:
-                continue
-            seen.add(key)
+            system_prompt = "You are a helpful HR assistant. Use the context below to answer accurately. If unsure, say so."
+            user_prompt = f"Context:\n{context}\n\nQuestion:\n{query}"
+            chat_response = chat_client.chat.completions.create(
+                model=AZURE_OPENAI_CHAT_DEPLOYMENT,
+                messages=[
+                    {"role": "system", "content": system_prompt},
+                    {"role": "user", "content": user_prompt}
+                ]
+            )
+            answer = chat_response.choices[0].message.content.strip()
+            section_number = best_result.get("section_number", "N/A")
+            section_title = best_result.get("section_title", "Untitled Section")
+            document_url = best_result.get("document_url", "")
             if document_url:
                 citation = f"{doc_name} — Section {section_number}: {section_title} ([Link to Document]({document_url}))"
             else:
                 citation = f"{doc_name} — Section {section_number}: {section_title}"
-            sources.append(citation)
-        formatted_sources = "\n".join(f"- {src}" for src in sources)
-        answer_blocks.append(f"### {heading}\n{answer}\n\n📚 **Sources:**\n{formatted_sources}")
-
+            answer_blocks.append(f"### {heading}\n{answer}\n\n📚 **Sources:**\n- {citation}")
     return "\n\n".join(answer_blocks)
 
 # --- Test ---
