@@ -51,6 +51,30 @@ documents = [
     {
         "url": "https://mespaihrchatbotstorage.blob.core.windows.net/phchrchatbotmvpfiles/Nurses%20Bargaining%20Association%202022-2025%20Collective%20Agreement.pdf",
         "name": "Nurses Bargaining Association 2022-2025 Collective Agreement"
+    },
+    {
+        "url": "https://mespaihrchatbotstorage.blob.core.windows.net/phchrchatbotmvpfiles/Andgo%20Login%20Guide.pdf",
+        "name": "Andgo Login Guide"
+    },
+    {
+        "url": "https://mespaihrchatbotstorage.blob.core.windows.net/phchrchatbotmvpfiles/Andgo%20User%20A%20Guide%20-%20How%20to%20Apply%20for%20Shifts%20and%20Blocks.pdf",
+        "name": "Andgo User A Guide - How to Apply for Shifts and Blocks"
+    },
+    {
+        "url": "https://mespaihrchatbotstorage.blob.core.windows.net/phchrchatbotmvpfiles/Andgo%20User%20Guide%20-%20How%20to%20Change%20Your%20Smart%20Call%20Preferences.pdf",
+        "name": "Andgo User Guide - How to Change Your Smart Call Preferences"
+    },
+    {
+        "url": "https://mespaihrchatbotstorage.blob.core.windows.net/phchrchatbotmvpfiles/Andgo%20User%20Guide%20-%20How%20to%20View%20MySchedule.pdf",
+        "name": "Andgo User Guide - How to View MySchedule"
+    },
+    {
+        "url": "https://mespaihrchatbotstorage.blob.core.windows.net/phchrchatbotmvpfiles/Angdo%20User%20Guide%20-%20How%20to%20View%20My%20Information.pdf",
+        "name": "Angdo User Guide - How to View My Information"
+    },
+    {
+        "url": "https://mespaihrchatbotstorage.blob.core.windows.net/phchrchatbotmvpfiles/EARL%20Employee%20Guide.pdf",
+        "name": "EARL Employee Guide"
     }
 ]
 
