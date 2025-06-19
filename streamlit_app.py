@@ -13,6 +13,22 @@ load_dotenv()
 # --- SET PAGE CONFIG AT VERY TOP ---
 st.set_page_config(page_title="HR Chatbot", page_icon="💬", layout="wide")
 
+# Add custom CSS for left alignment at the top after st.set_page_config
+st.markdown("""
+    <style>
+    .element-container .stMarkdown, .element-container .stMarkdown p {
+        text-align: left !important;
+        margin-left: 0 !important;
+        margin-right: 0 !important;
+    }
+    .stChatMessageContent, .stMarkdown {
+        text-align: left !important;
+        margin-left: 0 !important;
+        margin-right: 0 !important;
+    }
+    </style>
+""", unsafe_allow_html=True)
+
 # --- Allowed Domains List ---
 ALLOWED_DOMAINS = ["mespai.com", "providencehealth.bc.ca", "gmail.com"]
 
@@ -124,41 +140,47 @@ st.title("How can I help you today?")
 if "messages" not in st.session_state:
     st.session_state.messages = []
 
-# Display chat messages
+# Display chat messages (only completed ones)
 for message in st.session_state.messages:
     with st.chat_message(message["role"]):
-        st.markdown(message["content"], unsafe_allow_html=True)
+        if message["role"] == "assistant":
+            st.markdown(message["content"], unsafe_allow_html=True)
+            if message.get("sources"):
+                st.markdown(f"📚 **Sources:**\n{message['sources']}", unsafe_allow_html=True)
+        else:
+            st.markdown(message["content"], unsafe_allow_html=True)
 
 # Chat input box
 user_input = st.chat_input("Ask your HR question here...")
 
 if user_input:
-    # Display user message
-    st.chat_message("user").markdown(user_input)
-    st.session_state.messages.append({"role": "user", "content": user_input})
-
-    # Get answer from backend
+    # Show spinner below the chat while waiting for assistant response
     with st.spinner("Thinking..."):
         answer = ask_question(user_input)
-
-    # Split answer and sources
-    if "📚 **Sources:**" in answer:
-        main_answer, sources = answer.split("📚 **Sources:**", 1)
-    else:
-        main_answer, sources = answer, ""
-
-    # Display assistant's main answer
-    st.chat_message("assistant").markdown(main_answer.strip())
-    st.session_state.messages.append({"role": "assistant", "content": main_answer.strip()})
-
-    # Display sources if available
-    if sources.strip():
-        st.markdown(f"📚 **Sources:**\n{sources.strip()}", unsafe_allow_html=True)
-
+        # Split answer and sources
+        if "📚 **Sources:**" in answer:
+            main_answer, sources = answer.split("📚 **Sources:**", 1)
+        else:
+            main_answer, sources = answer, ""
+        user_message = {"role": "user", "content": user_input}
+        assistant_message = {
+            "role": "assistant",
+            "content": main_answer.strip(),
+            "sources": sources.strip() if sources.strip() else None
+        }
+        st.session_state.messages.append(user_message)
+        st.session_state.messages.append(assistant_message)
+        # Display the new user message
+        with st.chat_message("user"):
+            st.markdown(user_input)
+        # Display the new assistant message
+        with st.chat_message("assistant"):
+            st.markdown(assistant_message["content"], unsafe_allow_html=True)
+            if assistant_message.get("sources"):
+                st.markdown(f"📚 **Sources:**\n{assistant_message['sources']}", unsafe_allow_html=True)
     # Save last interaction
     st.session_state.last_question = user_input
     st.session_state.last_answer = main_answer.strip()
-
     # Log Q/A immediately with 'Pending' feedback
     log_interaction(
         sheet,
