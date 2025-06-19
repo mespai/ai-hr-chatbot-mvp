@@ -1,20 +1,11 @@
 from azure.search.documents.indexes import SearchIndexClient
 from azure.search.documents.indexes.models import (
-    SearchIndex, SimpleField, SearchableField, SearchFieldDataType, VectorSearch, HnswAlgorithmConfiguration, VectorSearchProfile
+    SearchIndex, SimpleField, SearchableField, SearchField, SearchFieldDataType,
+    VectorSearch, HnswAlgorithmConfiguration, VectorSearchProfile
 )
 from azure.core.credentials import AzureKeyCredential
 import os
 from dotenv import load_dotenv
-from azure.search.documents.indexes.models import (
-    SearchIndex, 
-    SimpleField, 
-    SearchableField, 
-    SearchField,  # Add this line
-    SearchFieldDataType, 
-    VectorSearch, 
-    HnswAlgorithmConfiguration, 
-    VectorSearchProfile
-)
 
 load_dotenv()
 
@@ -35,13 +26,14 @@ fields = [
     SearchableField(name="section_title", type=SearchFieldDataType.String),
     SimpleField(name="document_name", type=SearchFieldDataType.String),
     SimpleField(name="document_url", type=SearchFieldDataType.String),
-SearchField(
-    name="embedding",
-    type=SearchFieldDataType.Collection(SearchFieldDataType.Single),
-    searchable=True,
-    vector_search_dimensions=1536,
-    vector_search_profile_name="my-vector-config"  # Add '_name' suffix
-)
+    SimpleField(name="section", type=SearchFieldDataType.String),  # <-- This fixes the error
+    SearchField(
+        name="embedding",
+        type=SearchFieldDataType.Collection(SearchFieldDataType.Single),
+        searchable=True,
+        vector_search_dimensions=1536,
+        vector_search_profile_name="my-vector-config"
+    )
 ]
 
 vector_search = VectorSearch(
@@ -59,7 +51,7 @@ index = SearchIndex(
 try:
     index_client.delete_index(index_name)
 except:
-    pass  # ignore if index doesn't exist yet
+    pass
 
 index_client.create_index(index)
 
