@@ -22,6 +22,7 @@ AZURE_OPENAI_CHAT_API_KEY = os.getenv("AZURE_OPENAI_CHAT_API_KEY")
 AZURE_OPENAI_CHAT_ENDPOINT = os.getenv("AZURE_OPENAI_CHAT_ENDPOINT")
 AZURE_OPENAI_CHAT_DEPLOYMENT = os.getenv("AZURE_OPENAI_CHAT_DEPLOYMENT")
 print(f"DEBUG - AZURE_OPENAI_CHAT_DEPLOYMENT: {AZURE_OPENAI_CHAT_DEPLOYMENT}")
+AZURE_OPENAI_CHAT_API_VERSION = os.getenv("AZURE_OPENAI_CHAT_API_VERSION")
 
 # Clients
 embedding_client = AzureOpenAI(
@@ -32,7 +33,7 @@ embedding_client = AzureOpenAI(
 
 chat_client = AzureOpenAI(
     api_key=AZURE_OPENAI_CHAT_API_KEY,
-    api_version="2024-12-01-preview",
+    api_version=AZURE_OPENAI_CHAT_API_VERSION,
     azure_endpoint=AZURE_OPENAI_CHAT_ENDPOINT
 )
 
