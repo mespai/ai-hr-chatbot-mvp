@@ -91,6 +91,38 @@ if "user_email" not in st.session_state:
             st.rerun()
         else:
             st.error("❌ Unauthorized domain. Please use a valid company email.")
+
+    # Place your welcome message here, before st.stop()
+    st.markdown("""
+    <div style="
+        background-color: #fffbe6;
+        border-left: 6px solid #ffe066;
+        padding: 1.5em 1.5em 1.5em 1.5em;
+        border-radius: 8px;
+        margin-top: 1.5em;
+        margin-bottom: 1.5em;
+    ">
+    <b>Welcome to the HR Chatbot (Proof of Concept)</b><br>
+    Thank you for participating in this early test of our HR Chatbot. This tool is currently being tested as part of our ongoing efforts to improve how employees access important information.<br>
+    <br>
+    <b>Please note:</b>
+    <ul style=\"margin-top: 0;\">  <!-- This line is changed -->
+    <li>This chatbot is for testing purposes only and may not have answers to all questions.</li>
+    <li>It is trained on a limited set of HR and onboarding materials, including:
+        <ul>
+            <li>Common Employee Questions</li>
+            <li>PHC Onboarding FAQ 2025</li>
+            <li>Terms and Conditions of Employment for Non-Contract Employees</li>
+            <li>NBA Collective Agreement (2022–2025)</li>
+            <li>Andgo System Guides</li>
+            <li>EARL Employee Guide</li>
+        </ul>
+    </li>
+    </ul>
+    <b>Disclaimer:</b> This chatbot is not a replacement for official HR guidance. For questions not covered by the sources above, or for any urgent HR-related issues, please contact your HR representative directly.
+    </div>
+    """, unsafe_allow_html=True)
+
     st.stop()
 
 # ✅ If logged in, proceed with app!
